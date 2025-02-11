@@ -1,0 +1,209 @@
+<!--
+To use this dashboard, make sure you have:
+
+The required CSS in /public/css/dashboard.css
+The bundled JavaScript in /public/js/bundle.js
+A logo file in /public/logo.png
+The backend API endpoints configured
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/public/favicon.ico">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="/public/css/dashboard.css">
+    
+    <!-- Chart.js for fallback -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+
+    <style>
+        /* Essential styles that don't depend on external CSS */
+        .loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .loading.active {
+            display: flex;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Loading Overlay -->
+    <div id="loading" class="loading">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <img class="h-8 w-8" src="/public/logo.png" alt="Logo">
+                        <span class="ml-2 text-xl font-bold">Analytics Dashboard</span>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="relative" id="dateRangePicker">
+                        <select class="block appearance-none bg-white border border-gray-300 rounded-md py-2 px-4 pr-8 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="24h">Last 24 Hours</option>
+                            <option value="7d">Last 7 Days</option>
+                            <option value="30d">Last 30 Days</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-gray-500 text-sm font-medium">Total Visitors</h3>
+                <p class="text-2xl font-bold" id="totalVisitors">Loading...</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-gray-500 text-sm font-medium">Active Sessions</h3>
+                <p class="text-2xl font-bold" id="activeSessions">Loading...</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-gray-500 text-sm font-medium">Avg. Session Duration</h3>
+                <p class="text-2xl font-bold" id="avgSessionDuration">Loading...</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-gray-500 text-sm font-medium">Bounce Rate</h3>
+                <p class="text-2xl font-bold" id="bounceRate">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Traffic Overview -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-semibold mb-4">Traffic Overview</h2>
+                <canvas id="trafficChart" height="300"></canvas>
+            </div>
+
+            <!-- User Behavior -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-semibold mb-4">User Behavior</h2>
+                <canvas id="behaviorChart" height="300"></canvas>
+            </div>
+
+            <!-- Device Distribution -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-semibold mb-4">Device Distribution</h2>
+                <canvas id="deviceChart" height="300"></canvas>
+            </div>
+
+            <!-- Page Performance -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-semibold mb-4">Page Performance</h2>
+                <canvas id="performanceChart" height="300"></canvas>
+            </div>
+        </div>
+
+        <!-- Real-time Activity -->
+        <div class="mt-8 bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-semibold">Real-time Activity</h2>
+            </div>
+            <div class="p-6">
+                <div id="realtimeActivity" class="space-y-4">
+                    <!-- Real-time updates will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="/public/js/bundle.js"></script>
+    <script>
+        // Initialize the dashboard when the DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize charts
+            initializeCharts();
+            
+            // Set up real-time updates
+            setupRealtimeUpdates();
+            
+            // Set up date range picker
+            setupDateRangePicker();
+        });
+    </script>
+</body>
+</html>
+
+<!--
+This index.html file provides the structure for the analytics dashboard with:
+
+Core Sections:
+
+
+Navigation bar with date range picker
+Summary cards for key metrics
+Chart grid for visualizations
+Real-time activity feed
+
+
+Layout Features:
+
+
+Responsive grid design
+Mobile-friendly viewport
+Loading states
+Fallback content
+
+
+External Dependencies:
+
+
+Tailwind CSS for styling
+Chart.js for visualizations
+Custom bundled JavaScript
+
+
+Performance Optimizations:
+
+
+Deferred script loading
+Essential inline styles
+Loading indicator
+Progressive enhancement
+-->
